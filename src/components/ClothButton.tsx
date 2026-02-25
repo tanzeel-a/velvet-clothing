@@ -39,28 +39,32 @@ export default function ClothButton({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<Point[]>([]);
   const constraintsRef = useRef<Constraint[]>([]);
-  const mouseRef = useRef({ x: 0, y: 0, down: false, radius: 40 });
+  const mouseRef = useRef({ x: 0, y: 0, down: false, radius: 50 });
   const isHoveredRef = useRef(false);
   const animationRef = useRef<number>(0);
+  const timeRef = useRef(0);
 
-  const padding = 15;
-  const cols = 20;
-  const rows = 8;
+  const padding = 20;
+  // More points for wooly texture
+  const cols = 28;
+  const rows = 12;
   const spacing = width / (cols - 1);
   const spacingY = height / (rows - 1);
-  const gravity = 0.15;
-  const friction = 0.97;
-  const stiffness = 0.9;
-  const constraintIterations = 3;
+  // Softer physics for wooly feel
+  const gravity = 0.08;
+  const friction = 0.985;
+  const stiffness = 0.6; // Lower stiffness = more stretchy/wooly
+  const constraintIterations = 4;
 
   const getAnchorStrength = useCallback((x: number, y: number) => {
     const edgeX = x === 0 || x === cols - 1;
     const edgeY = y === 0 || y === rows - 1;
     const corner = edgeX && edgeY;
 
-    if (corner) return 0.3;
-    if (edgeX || edgeY) return 0.15;
-    return 0.05;
+    // Weaker anchors for more movement
+    if (corner) return 0.15;
+    if (edgeX || edgeY) return 0.08;
+    return 0.02;
   }, []);
 
   const hexToRgb = (hex: string) => {
@@ -78,7 +82,6 @@ export default function ClothButton({
     const points: Point[] = [];
     const constraints: Constraint[] = [];
 
-    // Create points grid
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const px = padding + x * spacing;
@@ -97,23 +100,32 @@ export default function ClothButton({
       }
     }
 
-    // Create constraints
+    // Create constraints with slight variation for organic feel
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const idx = y * cols + x;
 
         if (x < cols - 1) {
-          constraints.push({ p1: idx, p2: idx + 1, length: spacing });
+          constraints.push({ p1: idx, p2: idx + 1, length: spacing * (0.95 + Math.random() * 0.1) });
         }
 
         if (y < rows - 1) {
-          constraints.push({ p1: idx, p2: idx + cols, length: spacingY });
+          constraints.push({ p1: idx, p2: idx + cols, length: spacingY * (0.95 + Math.random() * 0.1) });
         }
 
+        // Diagonal constraints for stability
         if (x < cols - 1 && y < rows - 1) {
           const diagLength = Math.sqrt(spacing * spacing + spacingY * spacingY);
           constraints.push({ p1: idx, p2: idx + cols + 1, length: diagLength });
           constraints.push({ p1: idx + 1, p2: idx + cols, length: diagLength });
+        }
+
+        // Skip constraints for more wooly feel
+        if (x < cols - 2) {
+          constraints.push({ p1: idx, p2: idx + 2, length: spacing * 2 });
+        }
+        if (y < rows - 2) {
+          constraints.push({ p1: idx, p2: idx + cols * 2, length: spacingY * 2 });
         }
       }
     }
@@ -127,6 +139,7 @@ export default function ClothButton({
     const constraints = constraintsRef.current;
     const mouse = mouseRef.current;
     const isHovered = isHoveredRef.current;
+    timeRef.current += 0.016;
 
     for (const point of points) {
       if (point.pinned) continue;
@@ -137,8 +150,11 @@ export default function ClothButton({
       point.oldX = point.x;
       point.oldY = point.y;
 
-      point.x += vx;
-      point.y += vy + (isHovered ? gravity * 0.3 : 0);
+      // Add subtle wooly movement even when not hovered
+      const wobble = Math.sin(timeRef.current * 2 + point.origX * 0.1) * 0.15;
+
+      point.x += vx + wobble;
+      point.y += vy + gravity * 0.5;
 
       if (isHovered) {
         const dx = point.x - mouse.x;
@@ -147,14 +163,14 @@ export default function ClothButton({
 
         if (dist < mouse.radius) {
           const force = (mouse.radius - dist) / mouse.radius;
-          const pushStrength = mouse.down ? 3 : 1.5;
+          const pushStrength = mouse.down ? 5 : 2.5;
 
-          point.x += dx * force * 0.1 * pushStrength;
-          point.y += dy * force * 0.1 * pushStrength;
+          point.x += dx * force * 0.15 * pushStrength;
+          point.y += dy * force * 0.15 * pushStrength;
         }
       }
 
-      const anchorForce = point.anchorStrength * (isHovered ? 0.5 : 1);
+      const anchorForce = point.anchorStrength * (isHovered ? 0.3 : 0.6);
       point.x += (point.origX - point.x) * anchorForce;
       point.y += (point.origY - point.y) * anchorForce;
     }
@@ -167,6 +183,7 @@ export default function ClothButton({
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist === 0) continue;
         const diff = ((constraint.length - dist) / dist) * stiffness;
 
         const offsetX = dx * diff * 0.5;
@@ -196,9 +213,9 @@ export default function ClothButton({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw the cloth shape
     ctx.beginPath();
 
-    // Top edge
     for (let x = 0; x < cols; x++) {
       const point = points[x];
       if (x === 0) {
@@ -208,19 +225,16 @@ export default function ClothButton({
       }
     }
 
-    // Right edge
     for (let y = 1; y < rows; y++) {
       const point = points[y * cols + (cols - 1)];
       ctx.lineTo(point.x, point.y);
     }
 
-    // Bottom edge
     for (let x = cols - 2; x >= 0; x--) {
       const point = points[(rows - 1) * cols + x];
       ctx.lineTo(point.x, point.y);
     }
 
-    // Left edge
     for (let y = rows - 2; y >= 0; y--) {
       const point = points[y * cols];
       ctx.lineTo(point.x, point.y);
@@ -230,9 +244,9 @@ export default function ClothButton({
 
     if (isBorder) {
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
       ctx.fill();
     } else {
       const gradient = ctx.createLinearGradient(
@@ -244,29 +258,52 @@ export default function ClothButton({
       const baseColor = hexToRgb(color);
       gradient.addColorStop(
         0,
-        `rgba(${Math.min(255, baseColor.r + 20)}, ${Math.min(255, baseColor.g + 20)}, ${Math.min(255, baseColor.b + 20)}, 1)`
+        `rgba(${Math.min(255, baseColor.r + 30)}, ${Math.min(255, baseColor.g + 30)}, ${Math.min(255, baseColor.b + 30)}, 1)`
       );
       gradient.addColorStop(0.5, color);
       gradient.addColorStop(
         1,
-        `rgba(${Math.max(0, baseColor.r - 30)}, ${Math.max(0, baseColor.g - 30)}, ${Math.max(0, baseColor.b - 30)}, 1)`
+        `rgba(${Math.max(0, baseColor.r - 40)}, ${Math.max(0, baseColor.g - 40)}, ${Math.max(0, baseColor.b - 40)}, 1)`
       );
 
       ctx.fillStyle = gradient;
       ctx.fill();
     }
 
-    // Draw cloth texture lines
+    // Draw wooly thread texture - horizontal
     ctx.strokeStyle = isBorder
-      ? 'rgba(255,255,255,0.1)'
-      : 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 0.5;
+      ? 'rgba(255,255,255,0.08)'
+      : 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 0.8;
 
-    for (let y = 1; y < rows - 1; y += 2) {
+    for (let y = 1; y < rows - 1; y++) {
       ctx.beginPath();
       for (let x = 0; x < cols; x++) {
         const point = points[y * cols + x];
         if (x === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          // Use quadratic curves for smoother wool texture
+          const prevPoint = points[y * cols + x - 1];
+          const cpX = (prevPoint.x + point.x) / 2;
+          const cpY = (prevPoint.y + point.y) / 2 + Math.sin(x * 0.5) * 0.5;
+          ctx.quadraticCurveTo(prevPoint.x, prevPoint.y, cpX, cpY);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Draw wooly thread texture - vertical
+    ctx.strokeStyle = isBorder
+      ? 'rgba(255,255,255,0.05)'
+      : 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+
+    for (let x = 2; x < cols - 1; x += 2) {
+      ctx.beginPath();
+      for (let y = 0; y < rows; y++) {
+        const point = points[y * cols + x];
+        if (y === 0) {
           ctx.moveTo(point.x, point.y);
         } else {
           ctx.lineTo(point.x, point.y);
@@ -275,9 +312,23 @@ export default function ClothButton({
       ctx.stroke();
     }
 
+    // Add subtle fuzz/wool particles
+    if (!isBorder) {
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      for (let i = 0; i < 20; i++) {
+        const idx = Math.floor(Math.random() * points.length);
+        const point = points[idx];
+        const size = Math.random() * 1.5 + 0.5;
+        ctx.beginPath();
+        ctx.arc(point.x + (Math.random() - 0.5) * 3, point.y + (Math.random() - 0.5) * 3, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Glow effect on hover
     if (isHovered) {
       ctx.shadowColor = color;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 25;
     }
   }, [color, isBorder, width, height]);
 
