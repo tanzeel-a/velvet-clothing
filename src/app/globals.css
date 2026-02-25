@@ -32,7 +32,7 @@ html {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -41,7 +41,7 @@ html {
 
 ::-webkit-scrollbar-thumb {
   background: #333;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -74,21 +74,12 @@ html {
   }
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(184, 165, 137, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(184, 165, 137, 0.4);
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -115,6 +106,10 @@ html {
   animation: float 6s ease-in-out infinite;
 }
 
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Scroll indicator animation */
 .scroll-line {
   animation: scrollPulse 2s ease-in-out infinite;
@@ -138,30 +133,15 @@ html {
 .cloth-button {
   position: relative;
   cursor: pointer;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
 }
 
 .cloth-button:hover {
-  transform: scale(1.02);
+  transform: scale(1.01);
 }
 
 .cloth-button canvas {
   display: block;
-}
-
-.button-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.75rem;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: #fff;
-  pointer-events: none;
-  text-shadow: 0 2px 15px rgba(0,0,0,0.7);
-  white-space: nowrap;
-  font-weight: 500;
 }
 
 /* Three.js canvas cursor */
@@ -206,4 +186,10 @@ input:focus {
 
 .hover-glow:hover {
   box-shadow: 0 0 30px rgba(184, 165, 137, 0.3);
+}
+
+/* WebGL canvas fix */
+canvas {
+  display: block;
+  max-width: 100%;
 }
