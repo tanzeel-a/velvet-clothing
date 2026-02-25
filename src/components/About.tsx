@@ -5,14 +5,14 @@ import ClothButton from './ClothButton';
 
 export default function About() {
   return (
-    <section id="about" className="py-40 px-8 md:px-20 bg-[#111111]">
+    <section id="about" className="py-40 px-8 md:px-20 bg-[#111111] scroll-mt-24">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 max-w-7xl mx-auto items-center">
         {/* Image with decorative frame */}
         <div className="relative">
           <div className="relative h-[550px] lg:h-[700px] overflow-hidden">
             <Image
               src="https://images.unsplash.com/photo-1558171813-4c088753af8f?w=800&q=80"
-              alt="About VELVET"
+              alt="Artisan crafting luxury clothing at VELVET workshop"
               fill
               className="object-cover hover:scale-105 transition-transform duration-700"
             />
@@ -25,14 +25,14 @@ export default function About() {
         {/* Content */}
         <div className="lg:pl-8">
           <p className="text-[#b8a589] text-xs tracking-[4px] uppercase mb-6">Our Philosophy</p>
-          <h3
+          <h2
             className="text-4xl md:text-5xl font-light mb-10 leading-tight"
             style={{ fontFamily: 'var(--font-cormorant)' }}
           >
             Crafted With
             <br />
             <span className="text-[#b8a589]">Purpose</span>
-          </h3>
+          </h2>
           <p className="text-gray-400 leading-[2] mb-8 text-lg">
             At VELVET, we believe that clothing is more than fabric sewn together.
             It&apos;s an expression of identity, a statement of values, and a commitment

@@ -7,7 +7,7 @@ export default function Newsletter() {
   const [email, setEmail] = useState('');
 
   return (
-    <section id="contact" className="py-40 px-8 md:px-16 bg-[#0a0a0a] min-h-[80vh] flex items-center justify-center">
+    <section id="contact" className="py-40 px-8 md:px-16 bg-[#0a0a0a] min-h-[80vh] flex items-center justify-center scroll-mt-24">
       <div className="max-w-2xl w-full text-center">
         <h2
           className="text-4xl md:text-6xl font-light mb-6 tracking-wide"
@@ -23,19 +23,26 @@ export default function Newsletter() {
           offers curated just for you.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+        <form
+          className="flex flex-col sm:flex-row gap-6 justify-center items-center"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <label htmlFor="email-input" className="sr-only">Email address</label>
           <input
+            id="email-input"
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
+            aria-label="Email address for newsletter"
             className="px-8 py-5 bg-transparent border border-gray-700 text-white text-sm w-full sm:w-96 outline-none transition-all focus:border-[#b8a589] focus:shadow-[0_0_20px_rgba(184,165,137,0.2)]"
           />
           <ClothButton text="Subscribe" color="#b8a589" width={180} height={55} />
-        </div>
+        </form>
 
         {/* Decorative elements */}
-        <div className="mt-16 flex justify-center gap-8">
+        <div className="mt-16 flex justify-center gap-8" aria-hidden="true">
           <div className="w-px h-20 bg-gradient-to-b from-transparent via-[#b8a589]/30 to-transparent" />
           <div className="w-px h-20 bg-gradient-to-b from-transparent via-[#b8a589]/50 to-transparent" />
           <div className="w-px h-20 bg-gradient-to-b from-transparent via-[#b8a589]/30 to-transparent" />

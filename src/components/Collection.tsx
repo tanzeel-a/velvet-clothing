@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import ClothButton from './ClothButton';
 
@@ -9,65 +9,114 @@ const collections = [
     id: 1,
     name: 'Silk Evening Dress',
     price: '$890',
-    image: 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=600&h=900&fit=crop&q=80',
   },
   {
     id: 2,
     name: 'Cashmere Coat',
     price: '$1,250',
-    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=600&h=900&fit=crop&q=80',
   },
   {
     id: 3,
     name: 'Linen Ensemble',
     price: '$680',
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&h=900&fit=crop&q=80',
   },
   {
     id: 4,
     name: 'Velvet Blazer',
     price: '$720',
-    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&h=900&fit=crop&q=80',
   },
   {
     id: 5,
-    name: 'Wool Trousers',
+    name: 'Summer Collection',
     price: '$450',
-    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=900&fit=crop&q=80',
   },
 ];
 
 export default function Collection() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [position, setPosition] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const lastXRef = useRef(0);
+  const velocityRef = useRef(0);
+  const animationRef = useRef<number | null>(null);
 
-  const goToSlide = (index: number) => {
-    setActiveIndex(index);
-  };
+  const itemCount = collections.length;
 
-  const goNext = () => {
-    setActiveIndex((prev) => (prev + 1) % collections.length);
-  };
+  const normalizePosition = useCallback((pos: number) => {
+    const normalized = pos % itemCount;
+    return normalized < 0 ? normalized + itemCount : normalized;
+  }, [itemCount]);
 
-  const goPrev = () => {
-    setActiveIndex((prev) => (prev - 1 + collections.length) % collections.length);
-  };
+  const activeIndex = Math.round(normalizePosition(position)) % itemCount;
 
-  // Auto-play
+  const goNext = useCallback(() => {
+    setPosition(prev => prev + 1);
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setPosition(prev => prev - 1);
+  }, []);
+
+  const goToSlide = useCallback((index: number) => {
+    const currentNormalized = normalizePosition(position);
+    let diff = index - currentNormalized;
+
+    if (diff > itemCount / 2) diff -= itemCount;
+    if (diff < -itemCount / 2) diff += itemCount;
+
+    setPosition(prev => prev + diff);
+  }, [position, normalizePosition, itemCount]);
+
   useEffect(() => {
-    if (!isHovered) {
-      autoPlayRef.current = setInterval(goNext, 4000);
-    }
-    return () => {
-      if (autoPlayRef.current) {
-        clearInterval(autoPlayRef.current);
+    if (isHovered || isDragging) return;
+
+    const interval = setInterval(goNext, 4000);
+    return () => clearInterval(interval);
+  }, [isHovered, isDragging, goNext]);
+
+  useEffect(() => {
+    if (isDragging) return;
+
+    const animate = () => {
+      if (Math.abs(velocityRef.current) > 0.001) {
+        setPosition(prev => prev + velocityRef.current);
+        velocityRef.current *= 0.95;
+        animationRef.current = requestAnimationFrame(animate);
       }
     };
-  }, [isHovered]);
 
-  // Keyboard navigation
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isDragging]);
+
+  const handleDragStart = (clientX: number) => {
+    setIsDragging(true);
+    lastXRef.current = clientX;
+    velocityRef.current = 0;
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDragging) return;
+    const delta = (lastXRef.current - clientX) * 0.003;
+    velocityRef.current = delta;
+    setPosition(prev => prev + delta);
+    lastXRef.current = clientX;
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') goPrev();
@@ -75,10 +124,39 @@ export default function Collection() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [goNext, goPrev]);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      setPosition(prev => prev + e.deltaX * 0.002);
+    }
+  };
+
+  const getCardStyle = (index: number) => {
+    const normalizedPos = normalizePosition(position);
+
+    let offset = index - normalizedPos;
+
+    if (offset > itemCount / 2) offset -= itemCount;
+    if (offset < -itemCount / 2) offset += itemCount;
+
+    const absOffset = Math.abs(offset);
+    const rotateY = offset * 40;
+    const translateX = offset * 300;
+    const translateZ = -absOffset * 180;
+    const scale = Math.max(0.6, 1 - absOffset * 0.12);
+    const opacity = absOffset > 2.5 ? 0 : Math.max(0, 1 - absOffset * 0.35);
+    const zIndex = 100 - Math.round(absOffset * 10);
+
+    return {
+      transform: `translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+      opacity,
+      zIndex,
+    };
+  };
 
   return (
-    <section id="collection" className="py-32 px-6 md:px-12 bg-[#0a0a0a]">
+    <section id="collection" className="py-32 px-6 md:px-12 bg-[#0a0a0a] scroll-mt-24">
       <h2
         className="text-4xl md:text-5xl font-light text-center mb-4 tracking-wide"
         style={{ fontFamily: 'var(--font-cormorant)' }}
@@ -91,45 +169,51 @@ export default function Collection() {
 
       {/* 3D Carousel */}
       <div
-        ref={containerRef}
-        className="relative max-w-6xl mx-auto h-[500px] perspective-[1200px]"
+        className="relative max-w-6xl mx-auto h-[520px] md:h-[580px]"
+        style={{ perspective: '1200px' }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          handleDragEnd();
+        }}
+        onMouseDown={(e) => handleDragStart(e.clientX)}
+        onMouseMove={(e) => handleDragMove(e.clientX)}
+        onMouseUp={handleDragEnd}
+        onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
+        onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+        onTouchEnd={handleDragEnd}
+        onWheel={handleWheel}
       >
-        <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing">
           {collections.map((item, index) => {
-            const offset = index - activeIndex;
-            const absOffset = Math.abs(offset);
-
-            // Calculate 3D transform
-            const rotateY = offset * 45;
-            const translateX = offset * 280;
-            const translateZ = -absOffset * 200;
-            const scale = 1 - absOffset * 0.15;
-            const opacity = absOffset > 2 ? 0 : 1 - absOffset * 0.3;
-            const zIndex = collections.length - absOffset;
+            const style = getCardStyle(index);
 
             return (
               <div
                 key={item.id}
-                className="absolute w-[300px] md:w-[350px] h-[420px] md:h-[480px] cursor-pointer transition-all duration-500 ease-out"
+                className="absolute transition-all duration-300 ease-out"
                 style={{
-                  transform: `translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
-                  opacity,
-                  zIndex,
+                  ...style,
                   transformStyle: 'preserve-3d',
+                  width: '280px',
+                  height: '420px',
                 }}
-                onClick={() => goToSlide(index)}
+                onClick={() => !isDragging && goToSlide(index)}
               >
-                <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl shadow-black/50 group">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
-                    sizes="350px"
-                  />
-                  {/* Overlay gradient */}
+                <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl shadow-black/50 group bg-[#1a1a1a]">
+                  {/* Fixed aspect ratio container */}
+                  <div className="absolute inset-0">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                      sizes="(max-width: 768px) 280px, 320px"
+                      priority={index < 3}
+                    />
+                  </div>
+
+                  {/* Gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                   {/* Item info */}
@@ -145,7 +229,7 @@ export default function Collection() {
                     <p className="text-[#b8a589] text-base tracking-wide">{item.price}</p>
                   </div>
 
-                  {/* Highlight border for active */}
+                  {/* Active border */}
                   {index === activeIndex && (
                     <div className="absolute inset-0 border-2 border-[#b8a589]/50 rounded-lg pointer-events-none" />
                   )}
@@ -157,16 +241,18 @@ export default function Collection() {
 
         {/* Navigation arrows */}
         <button
-          onClick={goPrev}
-          className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/60 hover:bg-[#b8a589]/50 transition-all duration-300 flex items-center justify-center backdrop-blur-sm border border-white/10 hover:border-[#b8a589]/50"
+          onClick={(e) => { e.stopPropagation(); goPrev(); }}
+          className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 z-[200] w-12 h-12 rounded-full bg-black/60 hover:bg-[#b8a589]/50 transition-all duration-300 flex items-center justify-center backdrop-blur-sm border border-white/10 hover:border-[#b8a589]/50"
+          aria-label="Previous item"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </button>
         <button
-          onClick={goNext}
-          className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/60 hover:bg-[#b8a589]/50 transition-all duration-300 flex items-center justify-center backdrop-blur-sm border border-white/10 hover:border-[#b8a589]/50"
+          onClick={(e) => { e.stopPropagation(); goNext(); }}
+          className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 z-[200] w-12 h-12 rounded-full bg-black/60 hover:bg-[#b8a589]/50 transition-all duration-300 flex items-center justify-center backdrop-blur-sm border border-white/10 hover:border-[#b8a589]/50"
+          aria-label="Next item"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -180,6 +266,7 @@ export default function Collection() {
           <button
             key={index}
             onClick={() => goToSlide(index)}
+            aria-label={`Go to item ${index + 1}`}
             className={`h-2 rounded-full transition-all duration-300 ${
               index === activeIndex
                 ? 'bg-[#b8a589] w-8'
