@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef } from 'react';
 import Image from 'next/image';
+import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
 import ClothButton from './ClothButton';
 
 const collections = [
@@ -43,134 +44,116 @@ const collections = [
   },
 ];
 
-export default function Collection() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+// Duplicate for infinite scroll effect
+const extendedCollections = [...collections, ...collections];
 
-  const checkScroll = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  useEffect(() => {
-    checkScroll();
-    const ref = scrollRef.current;
-    if (ref) {
-      ref.addEventListener('scroll', checkScroll);
-      return () => ref.removeEventListener('scroll', checkScroll);
-    }
-  }, []);
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const scrollAmount = 400;
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth',
-      });
-    }
-  };
+function CollectionCard({ item, index }: { item: typeof collections[0]; index: number }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: false, amount: 0.3 });
 
   return (
-    <section id="collection" className="py-32 bg-[#0a0a0a] scroll-mt-24">
-      <div className="max-w-7xl mx-auto px-6 md:px-12">
-        <h2
+    <motion.div
+      ref={ref}
+      className="flex-shrink-0 w-[300px] md:w-[350px] group cursor-pointer"
+      initial={{ opacity: 0, y: 50 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0.5, y: 20 }}
+      transition={{ duration: 0.5, delay: index * 0.05 }}
+      whileHover={{ y: -10 }}
+    >
+      <div className="relative aspect-[3/4] overflow-hidden bg-[#1a1a1a] rounded-lg">
+        <Image
+          src={item.image}
+          alt={item.name}
+          fill
+          className="object-cover transition-transform duration-700 group-hover:scale-110"
+          sizes="350px"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+        <motion.div
+          className="absolute bottom-0 left-0 right-0 p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileHover={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <p className="text-[#b8a589] text-xs tracking-[3px] uppercase mb-2">
+            New Arrival
+          </p>
+          <h3
+            className="text-xl text-white mb-2"
+            style={{ fontFamily: 'var(--font-cormorant)' }}
+          >
+            {item.name}
+          </h3>
+          <p className="text-[#b8a589] text-lg">{item.price}</p>
+        </motion.div>
+
+        <motion.div
+          className="absolute inset-0 border-2 border-[#b8a589] rounded-lg"
+          initial={{ opacity: 0 }}
+          whileHover={{ opacity: 0.5 }}
+          transition={{ duration: 0.3 }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+export default function Collection() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start end", "end start"]
+  });
+
+  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-50%"]);
+  const smoothX = useSpring(x, { stiffness: 100, damping: 30, restDelta: 0.001 });
+
+  return (
+    <section id="collection" className="py-32 bg-[#0a0a0a] scroll-mt-24 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 mb-16">
+        <motion.h2
           className="text-4xl md:text-5xl font-light text-center mb-4 tracking-wide"
           style={{ fontFamily: 'var(--font-cormorant)' }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
         >
           Featured Collection
-        </h2>
-        <p className="text-center text-gray-500 text-sm tracking-[3px] uppercase mb-16">
+        </motion.h2>
+        <motion.p
+          className="text-center text-gray-500 text-sm tracking-[3px] uppercase"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          viewport={{ once: true }}
+        >
           Handpicked pieces for the season
-        </p>
+        </motion.p>
       </div>
 
-      {/* Horizontal Scroll Gallery */}
-      <div className="relative">
-        {/* Left Arrow */}
-        <button
-          onClick={() => scroll('left')}
-          className={`absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/80 hover:bg-[#b8a589] transition-all duration-300 flex items-center justify-center border border-white/20 hover:border-[#b8a589] ${
-            !canScrollLeft ? 'opacity-30 cursor-not-allowed' : ''
-          }`}
-          disabled={!canScrollLeft}
-          aria-label="Scroll left"
+      {/* Continuous Scroll Gallery */}
+      <div ref={containerRef} className="relative h-[600px]">
+        <motion.div
+          className="absolute top-0 left-0 flex gap-8 px-8"
+          style={{ x: smoothX }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-white">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-
-        {/* Right Arrow */}
-        <button
-          onClick={() => scroll('right')}
-          className={`absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/80 hover:bg-[#b8a589] transition-all duration-300 flex items-center justify-center border border-white/20 hover:border-[#b8a589] ${
-            !canScrollRight ? 'opacity-30 cursor-not-allowed' : ''
-          }`}
-          disabled={!canScrollRight}
-          aria-label="Scroll right"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-white">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-
-        {/* Scrollable Container */}
-        <div
-          ref={scrollRef}
-          className="flex gap-6 overflow-x-auto scrollbar-hide px-6 md:px-12 pb-4 snap-x snap-mandatory"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {collections.map((item, index) => (
-            <div
-              key={item.id}
-              className="flex-shrink-0 w-[320px] md:w-[380px] snap-center group cursor-pointer"
-            >
-              <div className="relative aspect-[3/4] overflow-hidden bg-[#1a1a1a] rounded-lg">
-                <Image
-                  src={item.image}
-                  alt={item.name}
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  sizes="(max-width: 768px) 320px, 380px"
-                  priority={index < 3}
-                />
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
-
-                {/* Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-8 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                  <p className="text-[#b8a589] text-xs tracking-[3px] uppercase mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    New Arrival
-                  </p>
-                  <h3
-                    className="text-2xl text-white mb-2"
-                    style={{ fontFamily: 'var(--font-cormorant)' }}
-                  >
-                    {item.name}
-                  </h3>
-                  <p className="text-[#b8a589] text-lg tracking-wide">{item.price}</p>
-                </div>
-
-                {/* Hover Border */}
-                <div className="absolute inset-0 border-2 border-[#b8a589]/0 group-hover:border-[#b8a589]/50 rounded-lg transition-all duration-300" />
-              </div>
-            </div>
+          {extendedCollections.map((item, index) => (
+            <CollectionCard key={`${item.id}-${index}`} item={item} index={index % collections.length} />
           ))}
-        </div>
-
-        {/* Gradient Edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0a0a0a] to-transparent pointer-events-none z-10" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0a0a0a] to-transparent pointer-events-none z-10" />
+        </motion.div>
       </div>
 
-      <div className="text-center mt-16">
+      <motion.div
+        className="text-center mt-16"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        viewport={{ once: true }}
+      >
         <ClothButton text="View All" color="#444444" width={200} height={55} />
-      </div>
+      </motion.div>
     </section>
   );
 }
