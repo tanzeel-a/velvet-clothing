@@ -143,15 +143,6 @@ export default function Collection() {
         >
           Featured Collection
         </motion.h2>
-        <motion.p
-          className="text-center text-gray-600 text-xs tracking-[4px] uppercase"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          viewport={{ once: true }}
-        >
-          Drag to explore
-        </motion.p>
       </div>
 
       {/* Gallery */}
